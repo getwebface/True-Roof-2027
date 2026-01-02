@@ -2,7 +2,7 @@ import { ApiResponse, PageConfig, GlobalConfig, ComponentData } from '../types';
 import { validatePageConfig } from '../lib/validation';
 
 // CONFIGURATION
-const API_ID = "58f61208-c44d-4448-9124-748455644846"; // Public Demo ID or Environment Variable
+const API_ID = "e9028d49-1711-4b29-90d2-5de17bbf21b9"; // True Roof 2026 API ID
 const BASE_URL = `https://api.sheet2db.com/v1/${API_ID}`;
 const ENABLE_MOCK_FALLBACK = true;
 
@@ -80,8 +80,7 @@ export const fetchGlobalConfig = async (): Promise<GlobalConfig> => {
                 if (row.key === 'navigation') {
                     config.navigation = safeJsonParse(row.value, []);
                 } else if (row.key && row.value) {
-                    // @ts-ignore
-                    config[row.key as keyof GlobalConfig] = row.value;
+                    (config as any)[row.key] = row.value;
                 }
             });
         }
@@ -97,7 +96,6 @@ export const fetchGlobalConfig = async (): Promise<GlobalConfig> => {
  * Uses Query Filtering to reduce payload size.
  */
 export const fetchPageBySlug = async (slug: string): Promise<PageConfig | null> => {
-    console.log(`[CMS] 🔍 Searching for page: ${slug}`);
     try {
         // Query Filter: ?sheet=pages&slug=...
         const response = await throttledFetch(`${BASE_URL}?sheet=pages&slug=${encodeURIComponent(slug)}`);
@@ -139,8 +137,6 @@ export const fetchPageBySlug = async (slug: string): Promise<PageConfig | null> 
  * 3. CREATE (POST): Lead Capture
  */
 export const submitLead = async (formData: Record<string, any>) => {
-  console.log(`[CMS] 📨 Submitting Lead...`, formData);
-  
   if (ENABLE_MOCK_FALLBACK) {
       return new Promise(resolve => setTimeout(() => resolve({ success: true }), 1000));
   }
@@ -166,8 +162,6 @@ export const submitLead = async (formData: Record<string, any>) => {
  * 4. UPDATE (PATCH): Genkit Mutation Service
  */
 export const updatePageLayout = async (slug: string, mutationType: string, newLayout: string[], newComponents: Record<string, ComponentData>) => {
-    console.log(`[CMS Mutation] 🧬 Applying Genkit Mutation: ${mutationType} on ${slug}`);
-    
     const payload = {
         layout: JSON.stringify(newLayout),
         components: JSON.stringify(newComponents),
@@ -176,7 +170,6 @@ export const updatePageLayout = async (slug: string, mutationType: string, newLa
     };
 
     if (ENABLE_MOCK_FALLBACK) {
-        console.log(`[CMS Mutation] (Simulated Payload)`, payload);
         return { success: true, message: "Simulation: Sheet updated." };
     }
 
@@ -349,6 +342,5 @@ const getMockPage = (slug: string): PageConfig | null => {
         }
       }
     };
-    // @ts-ignore
-    return fullMock[slug] || null;
+    return (fullMock as any)[slug] || null;
 }

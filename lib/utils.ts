@@ -1,11 +1,8 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-// Since we cannot install packages, we use a simplified version or just standard string interpolation if libraries were missing.
-// However, in this environment, I will write a simple helper.
-
-export function cn(...inputs: (string | undefined | null | false)[]) {
-  return inputs.filter(Boolean).join(" ");
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
 }
 
 export const formatCurrency = (amount: number) => {
