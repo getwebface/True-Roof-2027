@@ -8,7 +8,7 @@ This document serves as the instruction set for the **Genkit AI Agent**. The web
 ---
 
 ## 1. The Database (Google Sheets)
-The application reads from a Google Sheet exposed via `sheet2db`. The Sheet must contain two tabs: `global` and `pages`.
+The application reads from a Google Sheet exposed via `sheet2db`. The Sheet must contain four specific tabs.
 
 ### Tab: `global`
 Controls site-wide settings.
@@ -17,12 +17,26 @@ Controls site-wide settings.
 | companyName | Gen Roof Tiling | Brand name |
 | navigation | `[{"label":"Home","href":"/"}, ...]` | JSON Array of nav links |
 | phone | 1300 ROOF GEN | Contact number |
+| email | quotes@genroofing.com.au | Contact email |
 
 ### Tab: `pages`
-Controls specific routes. The `slug` is the primary key.
-| slug | meta_title | layout | components | theme_overrides |
-| :--- | :--- | :--- | :--- | :--- |
-| / | Expert Roofers | `["hero","services"]` | `{ "hero": { "type": "hero_magic", ... } }` | `{ "primaryColor": "..." }` |
+The core AI-driven layout sheet.
+| slug | meta_title | meta_description | layout | components | theme_overrides | last_optimized | last_mutation |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| / | Expert Roofers | Best in town | `["hero"]` | `{ "hero": ... }` | `{}` | ISO Date | opt_hero_upgrade |
+
+### Tab: `leads`
+Transactional log for form submissions.
+| created_at | name | phone | email | source | url |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| ISO String | John Doe | 0400... | ... | lead_form_split | / |
+
+### Tab: `signals`
+**Write-Only Stream.** The frontend pushes analytics events here. The Genkit Agent reads this to make decisions.
+| timestamp | path | type | metadata |
+| :--- | :--- | :--- | :--- |
+| ISO String | /services/restoration | view | `{"depth":"50%"}` |
+| ISO String | / | conversion | `{"source":"lead_form_split"}` |
 
 ---
 

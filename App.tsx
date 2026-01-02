@@ -2,63 +2,111 @@ import React, { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Layout } from './features/layout/Layout';
 import { PageBuilder } from './features/renderer/PageBuilder';
-import { fetchCmsData, findMatchingPage } from './services/cmsService';
+import { fetchGlobalConfig, fetchPageBySlug } from './services/cmsService';
 import { AnalyticsTracker } from './features/analytics/Analytics';
 import { GenkitOverlay } from './features/admin/GenkitOverlay';
-import { ApiResponse } from './types';
+import { GlobalConfig, PageConfig } from './types';
 
-// Wrapper component to handle data fetching based on current path
-const DynamicPage = ({ data }: { data: ApiResponse | null }) => {
+// Dynamic Page Loader
+const DynamicPage = () => {
   const location = useLocation();
-  
-  // Use fuzzy matching for routes (handles trailing slashes, etc.)
-  const pageConfig = data?.pages ? findMatchingPage(data.pages, location.pathname) || data.pages['/'] : null;
+  const [pageConfig, setPageConfig] = useState<PageConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Extract Variant from URL (e.g. ?variant=B)
+  const searchParams = new URLSearchParams(location.search);
+  const variantId = searchParams.get('variant');
 
   useEffect(() => {
-    if (!data || !pageConfig) return;
+    const loadPage = async () => {
+        setLoading(true);
+        setPageConfig(null);
 
-    // Apply dynamic theme overrides in Effect, not Render
+        // Determine target slug
+        let targetSlug = location.pathname;
+        if (targetSlug !== '/' && targetSlug.endsWith('/')) {
+             targetSlug = targetSlug.slice(0, -1);
+        }
+
+        // Logic to support A/B testing URL modification
+        if (variantId) {
+             // If variant exists, we might look for a specific variant page in the DB (e.g. /_B)
+             // or the AI logic handles it. For now, we append if it's root
+             if (targetSlug === '/') targetSlug = `/_${variantId}`;
+             else targetSlug = `${targetSlug}_${variantId}`;
+        }
+
+        const data = await fetchPageBySlug(targetSlug);
+        
+        // Handle Root Fallback if variant not found
+        if (!data && variantId) {
+             // Fallback to original slug if variant specific page doesn't exist
+             const originalSlug = location.pathname === '/' ? '/' : location.pathname.replace(/\/$/, '');
+             const fallbackData = await fetchPageBySlug(originalSlug);
+             setPageConfig(fallbackData);
+        } else {
+             setPageConfig(data);
+        }
+        
+        setLoading(false);
+    };
+
+    loadPage();
+  }, [location.pathname, variantId]);
+
+  useEffect(() => {
+    if (!pageConfig) return;
+
+    // Apply dynamic theme overrides
     if (pageConfig.themeOverrides?.primaryColor) {
       const root = document.documentElement;
       root.style.setProperty('--primary', pageConfig.themeOverrides.primaryColor);
       root.style.setProperty('--ring', pageConfig.themeOverrides.primaryColor);
     }
 
-    // Set Metadata dynamically
-    document.title = `${pageConfig.metaTitle} | ${data.global.companyName}`;
+    // Set Metadata
+    document.title = pageConfig.metaTitle || "Gen Roof Tiling";
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) metaDesc.setAttribute('content', pageConfig.metaDescription);
+  }, [pageConfig]);
 
-  }, [data, pageConfig, location.pathname]);
-
-  if (!data || !pageConfig) {
+  if (loading) {
     return (
         <div className="h-[50vh] w-full flex flex-col items-center justify-center space-y-4">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-            <p className="text-muted-foreground animate-pulse">Consulting the Oracle (Sheets)...</p>
+            <p className="text-muted-foreground animate-pulse text-sm">Fetching content from Sheets...</p>
         </div>
     );
+  }
+
+  if (!pageConfig) {
+      return (
+          <div className="min-h-[50vh] flex items-center justify-center flex-col">
+              <h1 className="text-4xl font-bold mb-2">404</h1>
+              <p className="text-muted-foreground">The AI hasn't built this page yet.</p>
+          </div>
+      )
   }
 
   return (
     <>
       <PageBuilder config={pageConfig} />
-      {/* The AI Brain Overlay - Visible for Admin/Demo purposes */}
       <GenkitOverlay pageConfig={pageConfig} />
     </>
   );
 };
 
 const App: React.FC = () => {
-  const [data, setData] = useState<ApiResponse | null>(null);
+  const [globalConfig, setGlobalConfig] = useState<GlobalConfig | null>(null);
 
+  // Load Global Config ONCE
   useEffect(() => {
     const init = async () => {
       try {
-        const cmsData = await fetchCmsData('init');
-        setData(cmsData);
+        const config = await fetchGlobalConfig();
+        setGlobalConfig(config);
       } catch (e) {
-        console.error("Failed to fetch CMS data", e);
+        console.error("Failed to fetch Global Config", e);
       }
     };
     init();
@@ -66,10 +114,10 @@ const App: React.FC = () => {
 
   return (
     <HashRouter>
-      <Layout config={data?.global}>
+      <Layout config={globalConfig || undefined}>
         <AnalyticsTracker />
         <Routes>
-          <Route path="*" element={<DynamicPage data={data} />} />
+          <Route path="*" element={<DynamicPage />} />
         </Routes>
       </Layout>
     </HashRouter>
