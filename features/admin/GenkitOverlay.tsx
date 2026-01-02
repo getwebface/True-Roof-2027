@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PageConfig } from '../../types';
 import { genkit, OptimizationSuggestion } from '../../services/genkitService';
+import { updatePageLayout } from '../../services/cmsService';
 import { cn } from '../../lib/utils';
 import { Button } from '../../components/ui/Button';
 
@@ -12,10 +13,12 @@ export const GenkitOverlay: React.FC<GenkitOverlayProps> = ({ pageConfig }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [suggestions, setSuggestions] = useState<OptimizationSuggestion[]>([]);
     const [isScanning, setIsScanning] = useState(false);
+    const [activeMutation, setActiveMutation] = useState<string | null>(null);
 
     useEffect(() => {
         if (pageConfig) {
             setIsScanning(true);
+            setSuggestions([]); // Clear previous
             // Simulate AI processing time
             setTimeout(() => {
                 const results = genkit.analyzePage(pageConfig);
@@ -24,6 +27,28 @@ export const GenkitOverlay: React.FC<GenkitOverlayProps> = ({ pageConfig }) => {
             }, 1500);
         }
     }, [pageConfig]);
+
+    const handleApplyMutation = async (suggestion: OptimizationSuggestion) => {
+        if (!pageConfig) return;
+        setActiveMutation(suggestion.id);
+        
+        try {
+            // Note: In a real agent scenario, the agent would construct the full payload.
+            // Here we are just triggering the signal to the CMS service.
+            await updatePageLayout(
+                pageConfig.slug, 
+                suggestion.id,
+                pageConfig.layout, // In reality, this would be the NEW layout
+                pageConfig.components // In reality, this would contain the NEW component data
+            );
+            alert(`Mutation [${suggestion.id}] sent to Sheet2DB queue.`);
+        } catch (e) {
+            console.error(e);
+            alert("Mutation failed.");
+        } finally {
+            setActiveMutation(null);
+        }
+    };
 
     if (!pageConfig) return null;
 
@@ -86,26 +111,23 @@ export const GenkitOverlay: React.FC<GenkitOverlayProps> = ({ pageConfig }) => {
                                          </span>
                                      </div>
                                      <p className="text-slate-300 leading-tight">{s.reason}</p>
-                                     <div className="pt-2 border-t border-slate-800 mt-2">
+                                     <div className="pt-2 border-t border-slate-800 mt-2 space-y-2">
                                          <div className="text-[10px] text-slate-500 mb-1">ACTION:</div>
-                                         <code className="text-orange-300 block bg-black/50 p-1 rounded">
+                                         <code className="text-orange-300 block bg-black/50 p-1 rounded mb-2">
                                              {s.suggestedAction}
                                          </code>
+                                         <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            className="w-full h-7 text-xs border-green-800 text-green-400 hover:bg-green-900 hover:text-green-300"
+                                            onClick={() => handleApplyMutation(s)}
+                                            disabled={activeMutation === s.id}
+                                         >
+                                            {activeMutation === s.id ? 'Applying...' : 'Authorize Change'}
+                                         </Button>
                                      </div>
                                  </div>
                              ))}
-                        </div>
-
-                        {/* Controls */}
-                        <div className="pt-2">
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="w-full text-xs h-8 border-slate-700 hover:bg-slate-800 hover:text-white"
-                                onClick={() => alert("Signal Sync Simulation: Data sent to Sheet.")}
-                            >
-                                Force Sync Signals to Hive
-                            </Button>
                         </div>
                     </div>
                 </div>

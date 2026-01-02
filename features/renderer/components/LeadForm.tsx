@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
+import { submitLead } from '../../../services/cmsService';
 
 interface LeadFormProps {
   title: string;
@@ -10,15 +11,30 @@ interface LeadFormProps {
 
 export const LeadForm: React.FC<LeadFormProps> = ({ title, subtitle, type }) => {
   const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Simulate API call to Google Sheets
-    setTimeout(() => {
-        alert("Thanks! We'll be in touch.");
+    
+    try {
+        await submitLead({
+            ...formData,
+            source: type,
+            url: window.location.href
+        });
+        alert("Thanks! We've received your details and will call shortly.");
+        setFormData({ name: '', email: '', phone: '' });
+    } catch (error) {
+        console.error("Submission failed", error);
+        alert("Something went wrong. Please call us directly.");
+    } finally {
         setLoading(false);
-    }, 1000);
+    }
   };
 
   if (type === 'lead_form_simple') {
@@ -27,7 +43,14 @@ export const LeadForm: React.FC<LeadFormProps> = ({ title, subtitle, type }) => 
             <div className="container px-4 md:px-6 flex flex-col items-center text-center">
                 <h2 className="text-2xl font-bold mb-4">{title}</h2>
                  <form onSubmit={handleSubmit} className="flex w-full max-w-sm items-center space-x-2">
-                    <Input type="email" placeholder="Email Address" required />
+                    <Input 
+                        name="email" 
+                        type="email" 
+                        placeholder="Email Address" 
+                        required 
+                        value={formData.email}
+                        onChange={handleChange}
+                    />
                     <Button type="submit" disabled={loading}>{loading ? '...' : 'Connect'}</Button>
                 </form>
             </div>
@@ -58,15 +81,38 @@ export const LeadForm: React.FC<LeadFormProps> = ({ title, subtitle, type }) => 
                  <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium leading-none">Name</label>
-                        <Input placeholder="John Doe" required className="bg-slate-900 border-slate-700 text-slate-50" />
+                        <Input 
+                            name="name"
+                            placeholder="John Doe" 
+                            required 
+                            className="bg-slate-900 border-slate-700 text-slate-50" 
+                            value={formData.name}
+                            onChange={handleChange}
+                        />
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium leading-none">Phone</label>
-                        <Input placeholder="0400 000 000" type="tel" required className="bg-slate-900 border-slate-700 text-slate-50" />
+                        <Input 
+                            name="phone"
+                            placeholder="0400 000 000" 
+                            type="tel" 
+                            required 
+                            className="bg-slate-900 border-slate-700 text-slate-50" 
+                            value={formData.phone}
+                            onChange={handleChange}
+                        />
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium leading-none">Email</label>
-                        <Input placeholder="john@example.com" type="email" required className="bg-slate-900 border-slate-700 text-slate-50" />
+                        <Input 
+                            name="email"
+                            placeholder="john@example.com" 
+                            type="email" 
+                            required 
+                            className="bg-slate-900 border-slate-700 text-slate-50" 
+                            value={formData.email}
+                            onChange={handleChange}
+                        />
                     </div>
                     <Button type="submit" className="w-full" variant="default" disabled={loading}>
                         {loading ? 'Submitting...' : 'Get My Free Quote'}

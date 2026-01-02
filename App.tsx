@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { Layout } from './features/layout/Layout';
 import { PageBuilder } from './features/renderer/PageBuilder';
-import { fetchCmsData } from './services/cmsService';
+import { fetchCmsData, findMatchingPage } from './services/cmsService';
 import { AnalyticsTracker } from './features/analytics/Analytics';
 import { GenkitOverlay } from './features/admin/GenkitOverlay';
 import { ApiResponse } from './types';
@@ -11,10 +11,8 @@ import { ApiResponse } from './types';
 const DynamicPage = ({ data }: { data: ApiResponse | null }) => {
   const location = useLocation();
   
-  // Memoize the page config to prevent effect loops
-  const path = location.pathname;
-  // Fallback to home if 404, or could render a dedicated 404 page from CMS if key exists
-  const pageConfig = data?.pages[path] || data?.pages['/']; 
+  // Use fuzzy matching for routes (handles trailing slashes, etc.)
+  const pageConfig = data?.pages ? findMatchingPage(data.pages, location.pathname) || data.pages['/'] : null;
 
   useEffect(() => {
     if (!data || !pageConfig) return;
@@ -31,7 +29,7 @@ const DynamicPage = ({ data }: { data: ApiResponse | null }) => {
     const metaDesc = document.querySelector('meta[name="description"]');
     if (metaDesc) metaDesc.setAttribute('content', pageConfig.metaDescription);
 
-  }, [data, pageConfig, path]);
+  }, [data, pageConfig, location.pathname]);
 
   if (!data || !pageConfig) {
     return (
